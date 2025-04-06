@@ -1,0 +1,6 @@
+torch
+torchvision
+transformers
+opencv-python
+pillow
+faiss-cpu  # or faiss-gpu if using a GPU
