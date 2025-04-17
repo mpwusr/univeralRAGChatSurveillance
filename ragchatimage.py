@@ -40,7 +40,7 @@ except FileNotFoundError:
 
 # Initialize Pinecone
 pc = Pinecone(api_key=PINECONE_API_KEY)
-INDEX_NAME = config_yaml.get("index_name", "surveillance-images")
+INDEX_NAME = config_yaml.get("index_name", "surveillance-my_images")
 DIMENSION = config_yaml.get("dimension", 512)  # Matches CLIP ViT-B/16 output
 
 if INDEX_NAME not in pc.list_indexes().names():
@@ -93,7 +93,7 @@ def load_config():
 
 def print_help():
     print(
-        "I can help assess physical security using surveillance images. Try asking about suspicious activities, "
+        "I can help assess physical security using surveillance my_images. Try asking about suspicious activities, "
         "alarms, or trends. Commands: 'help' (this message), 'exit' (quit), 'switch to <service>' (change service), "
         "'set model <model>' (change model), 'feedback <Y/N>' (rate last response)."
     )
@@ -202,7 +202,7 @@ def retrieve_images(query_embedding: torch.Tensor, top_k: int = 5) -> List[Dict[
         results = index.query(vector=query_embedding.tolist(), top_k=top_k, include_metadata=True)
         return [{"id": match["id"], "path": match["metadata"]["path"]} for match in results["matches"]]
     except Exception as e:
-        logger.error("Error retrieving images from Pinecone: %s", str(e))
+        logger.error("Error retrieving my_images from Pinecone: %s", str(e))
         return []
 
 def get_captions_from_pinecone(image_ids: List[str]) -> List[str]:
@@ -286,7 +286,7 @@ if __name__ == "__main__":
     upsert_data(sample_images, sample_captions, sample_timestamps)
 
     print(f"Starting with {SERVICE.capitalize()} (model: {MODEL})")
-    print("This chatbot uses surveillance images to assist with physical security queries.")
+    print("This chatbot uses surveillance my_images to assist with physical security queries.")
     while True:
         user_input = input(
             f"[{SERVICE.capitalize()}:{MODEL}] How can I assist you today? (Type 'exit', 'help', 'switch to <service>', 'set model <model>', or 'feedback <Y/N>'): ")
@@ -327,7 +327,7 @@ if __name__ == "__main__":
                 image_data = retrieve_images(query_embedding)
                 image_descriptions = get_captions_from_pinecone([data["id"] for data in image_data])
                 extra_instructions = (
-                    "You are provided with the following surveillance images and their descriptions to help answer the user's question:\n\n" +
+                    "You are provided with the following surveillance my_images and their descriptions to help answer the user's question:\n\n" +
                     "\n".join(f"- {desc}" for desc in image_descriptions) +
                     "\n\nPlease use this information to provide a detailed response to the user's question related to security scenarios, events, or alarms."
                 )
@@ -343,6 +343,6 @@ if __name__ == "__main__":
             except Exception as e:
                 logger.exception("Error during response retrieval: %s", e)
                 print(f"Sorry, something went wrong: {str(e)}. Falling back to text-only response.")
-                reply = "Unable to retrieve images due to an error. Please try again or refine your query."
+                reply = "Unable to retrieve my_images due to an error. Please try again or refine your query."
                 print(f"{SERVICE.capitalize()} says: {reply}")
                 conversation_history.append({"role": "assistant", "content": reply})

@@ -5,6 +5,7 @@ from pinecone import Pinecone, ServerlessSpec
 from transformers import CLIPProcessor, CLIPModel, BlipProcessor, BlipForConditionalGeneration
 from PIL import Image
 import torch
+import hashlib
 
 # Initialize Pinecone and CLIP
 load_dotenv()
@@ -13,7 +14,7 @@ if not PINECONE_API_KEY:
     raise ValueError("PINECONE_API_KEY is missing from environment variables")
 pc = Pinecone(api_key=PINECONE_API_KEY)
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-index_name = "surveillance-images"
+index_name = "surveillance-my_images"
 if index_name not in pc.list_indexes().names():
     pc.create_index(
         name=index_name,
@@ -41,13 +42,14 @@ def generate_caption(image_path):
     outputs = blip_model.generate(**inputs)
     return blip_processor.decode(outputs[0], skip_special_tokens=True)
 
-image_dir = "/Users/michaelwilliams/PycharmProjects/RAGChat/surveillance/images"  # Update this path
+image_dir = "/surveillance/my_images"  # Update this path
 image_paths = [os.path.join(image_dir, fname) for fname in os.listdir(image_dir) if fname.endswith((".jpg", ".png"))]
 
 for image_path in image_paths:
     embedding = generate_image_embedding(image_path)
     caption = generate_caption(image_path)
-    index.upsert([(image_path, embedding, {"path": image_path, "caption": caption})])
+    vector_id = hashlib.md5(image_path.encode('utf-8')).hexdigest()
+    index.upsert([(vector_id, embedding, {"path": image_path, "caption": caption})])
     print(f"Processed and stored: {image_path}")
 
 print("Preprocessing complete.")
