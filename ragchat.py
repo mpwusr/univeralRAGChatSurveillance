@@ -1,24 +1,23 @@
-import os
 import logging
-import requests
-from dotenv import load_dotenv
+import os
+import re
 import time
+import tkinter as tk
 from dataclasses import dataclass
-from openai import OpenAI
+from datetime import datetime
+from logging.handlers import RotatingFileHandler
+from typing import List, Dict, Tuple
+
 import cohere
+import requests
+import torch
+from PIL import Image, ImageTk
+from dotenv import load_dotenv
+from openai import OpenAI
+from pinecone import Pinecone, ServerlessSpec
 from requests import Response
 from tenacity import retry, stop_after_attempt, wait_exponential
-import re
-from logging.handlers import RotatingFileHandler
-import argparse
-import inspect
-from pinecone import Pinecone, ServerlessSpec
 from transformers import CLIPProcessor, CLIPModel
-from PIL import Image, ImageTk
-import torch
-import tkinter as tk
-from typing import List, Dict, Tuple
-from datetime import datetime
 
 # Logging setup
 handler = RotatingFileHandler("chatbot.log", maxBytes=10 * 1024 * 1024, backupCount=5)
