@@ -1,4 +1,4 @@
-import os
+
 import random
 import time
 import cv2
@@ -11,8 +11,9 @@ from transformers import CLIPProcessor, CLIPModel, BlipProcessor, BlipForConditi
 from torchvision.models.detection import maskrcnn_resnet50_fpn, MaskRCNN_ResNet50_FPN_Weights
 from dotenv import load_dotenv
 import hashlib
-import shutil
 import logging
+import os
+import shutil
 
 # Logging setup
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -108,6 +109,24 @@ def generate_image_embedding(image_path):
     except Exception as e:
         logger.error(f"Error generating embedding for {image_path}: {str(e)}")
         return None
+
+
+def empty_directory(dir_path):
+    if not os.path.isdir(dir_path):
+        print(f" Error: {dir_path} is not a valid directory.")
+        return
+
+    for filename in os.listdir(dir_path):
+        file_path = os.path.join(dir_path, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)  # Remove file or symbolic link
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)  # Remove directory and its contents
+            print(f" Removed: {file_path}")
+        except Exception as e:
+            print(f" Failed to delete {file_path}. Reason: {e}")
+
 
 def sanitize_embedding(embedding, dim=512):
     try:
@@ -420,10 +439,37 @@ def process_video_stream(input_source, output_dir, threshold=0.5, frame_interval
     print(f"Processed {frame_count} frames")
     cap.release()
 
+
+def copy_first_n_files(src_dir, dst_dir, n=250):
+    if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir)
+        print(f"📁 Created destination directory: {dst_dir}")
+
+    files = [f for f in os.listdir(src_dir) if os.path.isfile(os.path.join(src_dir, f))]
+    files.sort()  # Sort alphabetically; remove if order doesn't matter
+
+    for i, filename in enumerate(files[:n]):
+        src_file = os.path.join(src_dir, filename)
+        dst_file = os.path.join(dst_dir, filename)
+        shutil.copy2(src_file, dst_file)  # copy2 preserves metadata
+        print(f"📄 Copied ({i+1}/{n}): {filename}")
+
 def main():
-    image_dir = "/Users/michaelwilliams/PycharmProjects/RAGChat/surveillance/incoming_images"
+    wpndts_image_dir = "/Users/michaelwilliams/PycharmProjects/RAGChat/data/WPNDTS_3JS_PSVL/wpndts_3js_psvl-1/test/images"
+    yolo_image_dir = "/Users/michaelwilliams/PycharmProjects/RAGChat/dataset/images/train"
+    created_images = "/Users/michaelwilliams/PycharmProjects/RAGChat/data_processing/images"
+    image_dir ="/Users/michaelwilliams/PycharmProjects/RAGChat/surveillance/incoming_images"
     output_dir = "/Users/michaelwilliams/PycharmProjects/RAGChat/surveillance/segmented_images"
     input_source = -1  # -1 for static images, 0 for webcam, "rtsp://your_camera_ip/stream" for RTSP, or "/path/to/video.mp4"
+    # Clean input directory completely
+    if os.path.exists(image_dir):
+        try:
+            shutil.rmtree(image_dir)
+            print(f"Cleaned output directory: {image_dir}")
+        except Exception as e:
+            print(f"Error cleaning output directory {image_dir}: {str(e)}")
+    os.makedirs(image_dir, exist_ok=True)
+    print(f"Created output directory: {image_dir}")
 
     # Clean output directory completely
     if os.path.exists(output_dir):
@@ -434,7 +480,9 @@ def main():
             print(f"Error cleaning output directory {output_dir}: {str(e)}")
     os.makedirs(output_dir, exist_ok=True)
     print(f"Created output directory: {output_dir}")
-
+    copy_first_n_files(wpndts_image_dir, image_dir, 100)
+    copy_first_n_files(yolo_image_dir, image_dir, 100)
+    copy_first_n_files(created_images, image_dir, 25)
     if input_source == -1:
         if not os.path.exists(image_dir):
             print(f"Image directory {image_dir} does not exist.")
@@ -445,7 +493,7 @@ def main():
                        f.lower().endswith(('.jpg', '.jpeg', '.png')) and not f.startswith(('yolo_', 'mask_rcnn_'))]
         print(f"Found {len(image_files)} images in {image_dir}: {image_files}")
 
-        max_images = 25
+        max_images = 250
         processed_count = 0
         for file_name in image_files:
             if processed_count >= max_images:

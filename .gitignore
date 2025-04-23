@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 yolov7/*
+# data files
+data/WPNDTS_3JS_PSVL/
 # C extensions
 *.so
 
