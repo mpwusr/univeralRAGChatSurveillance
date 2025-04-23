@@ -7,7 +7,13 @@ yolov7/*
 data/WPNDTS_3JS_PSVL/
 # C extensions
 *.so
-
+# images
+surveillance/*
+dataset/*
+data/*
+wanddb/*
+weapon-detection-16/*
+data_processing/images/*
 # Distribution / packaging
 .Python
 build/
