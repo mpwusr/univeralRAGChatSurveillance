@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 yolov7/*
 # data files
-data/WPNDTS_3JS_PSVL/
+data/WPNDTS_3JS_PSVL/*
 # C extensions
 *.so
 # images
