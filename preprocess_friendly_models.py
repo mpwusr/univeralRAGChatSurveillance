@@ -455,8 +455,8 @@ def copy_first_n_files(src_dir, dst_dir, n=250):
         print(f"📄 Copied ({i+1}/{n}): {filename}")
 
 def main():
-    wpndts_image_dir = "/Users/michaelwilliams/PycharmProjects/RAGChat/data/WPNDTS_3JS_PSVL/wpndts_3js_psvl-1/test/images"
-    yolo_image_dir = "/Users/michaelwilliams/PycharmProjects/RAGChat/dataset/images/train"
+    wpndts_image_dir = "/Users/michaelwilliams/PycharmProjects/RAGChat/datav2/valid"
+    yolo_image_dir = "/Users/michaelwilliams/PycharmProjects/RAGChat/dataset/images/val"
     created_images = "/Users/michaelwilliams/PycharmProjects/RAGChat/data_processing/images"
     image_dir ="/Users/michaelwilliams/PycharmProjects/RAGChat/surveillance/incoming_images"
     output_dir = "/Users/michaelwilliams/PycharmProjects/RAGChat/surveillance/segmented_images"

@@ -25,7 +25,8 @@ if not pinecone_key:
     raise ValueError("Missing PINECONE_API_KEY in .env")
 
 # Constants
-MODEL_ID = "wpndts_3js_psvl/2"
+#MODEL_ID = "wpndts_3js_psvl/2"
+MODEL_ID = "ragchat-nonfriendly/3"
 INDEX_NAME = "surveillance-my-images"
 DIMENSION = 512
 CONFIDENCE_THRESHOLD = 0.25
