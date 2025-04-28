@@ -1,3 +1,4 @@
+# Core Deep Learning (keep existing versions)
 torch~=2.6.0
 torchvision~=0.21.0
 transformers~=4.49.0
@@ -20,11 +21,29 @@ wandb~=0.19.9
 thop~=0.1.1-2209072238
 ultralytics-thop~=2.0.14
 setuptools~=68.2.2
-pinecone~=6.0.2
+uvicorn~=0.29.0
+python-multipart~=0.0.9
+# Pinecone vector DB (correct version)
+pinecone-client~=3.0.2  # New correct package name; not "pinecone"
+
+# FastAPI / Validation
 pydantic~=2.10.6
+
+# Language Models
 cohere~=5.14.0
-dotenv~=0.9.9
-python-dotenv~=1.0.1
 openai~=1.66.3
-tenacity~=9.0.0
+langchain>=0.1.0,<0.2.0
+langchain-community
+langchain-openai
+langchain-cohere
+langchain-huggingface
+text_generation~=0.6.0
+# Env Loading
+python-dotenv~=1.0.1
+
+# Retry Logic
+tenacity~=8.2.2
+
+# Extras needed for ragchat
 scikit-learn~=1.6.1
+tk  # for GUI display windows

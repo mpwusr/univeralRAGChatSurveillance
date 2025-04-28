@@ -156,7 +156,7 @@ def main():
             images = [image.to(cfg['device']) for image in images]
             targets = [{k: v.to(cfg['device']) for k, v in t.items()} for t in targets]
             optimizer.zero_grad()
-            loss_dict = model(images, targets)  # Fixed typo: removed 'Giudice'
+            loss_dict = model(images, targets)
             losses = sum(loss for loss in loss_dict.values())
             losses.backward()
             optimizer.step()

@@ -108,14 +108,14 @@ def query_detections(query: str, index, embedder, top_k: int = 10) -> List[Dict]
     return detections
 
 
-# Load YOLO model
+# Load YOLO model without importing Model directly
 def load_yolo_model():
     device = torch.device(CONFIG['device'])
-    model = Model(CONFIG['yolo_cfg'], ch=3, nc=len(CONFIG['classes'])).to(device)
     ckpt = torch.load(CONFIG['yolo_weights'], map_location=device)
-    model.load_state_dict(ckpt if 'model' not in ckpt else ckpt['model'].float().state_dict())
-    model.eval()
+    model = ckpt['model'].float().fuse().eval()
+    model = model.to(device)
     return model
+
 
 
 # Load Mask R-CNN model
