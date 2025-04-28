@@ -64,6 +64,14 @@ def write_report(date_str, results):
         return
 
     base = f"pinecone_summary_{date_str}"
+    csv_file = f"{base}.csv"
+    json_file = f"{base}.json"
+
+    # Delete existing CSV and JSON files if they exist
+    for file in [csv_file, json_file]:
+        if os.path.exists(file):
+            os.remove(file)
+            print(f"🗑️ Deleted existing file: {file}")
 
     # Gather all unique keys from metadata
     all_keys = set()
@@ -71,17 +79,16 @@ def write_report(date_str, results):
         all_keys.update(row.keys())
     fieldnames = sorted(all_keys)
 
-    with open(f"{base}.csv", "w", newline="") as f:
+    with open(csv_file, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for row in results:
             writer.writerow(row)
 
-    with open(f"{base}.json", "w") as f:
+    with open(json_file, "w") as f:
         json.dump(results, f, indent=2)
 
-    print(f"✅ Report written to {base}.csv and {base}.json")
-
+    print(f"✅ Report written to {csv_file} and {json_file}")
 
 
 if __name__ == "__main__":
