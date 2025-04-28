@@ -35,12 +35,6 @@ COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 XAI_API_KEY = os.getenv("XAI_API_KEY")
 HF_API_KEY = os.getenv("HF_API_KEY")  # For Hugging Face Inference API
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")  # For local Ollama server
-print("DEBUG: Environment loaded - PINECONE_API_KEY:", os.getenv("PINECONE_API_KEY"))
-print("DEBUG: Environment loaded - OPENAI_API_KEY:", os.getenv("OPENAI_API_KEY"))
-print("DEBUG: Environment loaded - COHERE_API_KEY:", os.getenv("COHERE_API_KEY"))
-print("DEBUG: Environment loaded - XAI_API_KEY:", os.getenv("XAI_API_KEY"))
-print("DEBUG: Environment loaded - HF_API_KEY:", os.getenv("HF_API_KEY"))
-print("DEBUG: Environment loaded - OLLAMA_HOST:", os.getenv("OLLAMA_HOST"))
 if not PINECONE_API_KEY:
     raise ValueError("PINECONE_API_KEY is missing from environment variables")
 
@@ -160,12 +154,13 @@ class LLMHandler:
             logger.error(f"Cohere API error: {e}")
             raise
 
-    def get_huggingface_response(self, prompt, model="meta-llama/Llama-2-7b-chat-hf", conversation_history=None, extra_instructions=""):
+    def get_huggingface_response(self, prompt, model="meta-llama/Llama-2-7b-chat-hf", conversation_history=None,
+                                 extra_instructions=""):
         if not self.config.hf_client:
             raise ValueError("Hugging Face client not initialized. Check HF_API_KEY.")
         full_prompt = build_prompt("physical security consultant", prompt, conversation_history, extra_instructions)
         try:
-            response = self.config.hf_client(full_prompt, max_length=300, temperature=0.7)
+            response = self.config.hf_client.invoke(full_prompt)  # <--- FIXED
             return response
         except Exception as e:
             logger.error(f"Hugging Face API error: {e}")
@@ -307,6 +302,15 @@ def main():
     print("\nSummary of Recent Preprocessing Run:")
     print(summarize_recent_detections())
     print("\n")
+
+    # 🧠 List available LLMs
+    print("\n🧠 Available LLM Services:")
+    print(" - grok (model: grok-2)")
+    print(" - openai (model: gpt-4o)")
+    print(" - cohere (model: command-r)")
+    print(" - huggingface (model: meta-llama/Llama-2-7b-chat-hf)")
+    print(" - ollama (model: llama2)")
+    print("-" * 60)
 
     print(f"Starting with {llm_service.capitalize()} (model: {llm_model})")
     print("This chatbot uses surveillance images to assist with physical security queries.")
