@@ -14,13 +14,14 @@ import requests
 import torch
 from PIL import Image, ImageTk
 from dotenv import load_dotenv
+from huggingface_hub.inference_api import InferenceApi
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from openai import OpenAI
 from pinecone import Pinecone, ServerlessSpec
 from tenacity import retry, stop_after_attempt, wait_exponential
 from transformers import CLIPProcessor, CLIPModel
-from langchain.llms import HuggingFaceTextGenInference, LlamaCpp
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
 
 # Logging setup
 handler = RotatingFileHandler("chatbot.log", maxBytes=10 * 1024 * 1024, backupCount=5)
@@ -64,6 +65,8 @@ def load_clip():
         clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch16")
     return clip_processor, clip_model
 
+from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
+
 @dataclass
 class Config:
     openai_api_key: str
@@ -78,30 +81,47 @@ class Config:
     def __post_init__(self):
         self.openai_client = OpenAI(api_key=self.openai_api_key)
         self.cohere_client = cohere.Client(self.cohere_api_key)
-        self.hf_client = HuggingFaceTextGenInference(
-            inference_server_url="https://api-inference.huggingface.co/models/meta-llama/Llama-2-7b-chat-hf",
-            api_key=self.hf_api_key
-        ) if self.hf_api_key else None
+
+        # 1) create an endpoint wrapper around the HF Inference API
+        self.hf_endpoint = HuggingFaceEndpoint(
+                    repo_id = "meta-llama/Llama-2-7b-chat-hf",
+                    max_new_tokens = 1024,
+                    temperature = 0.7,
+                    top_p = 0.9,
+                    huggingfacehub_api_token = self.hf_api_key,
+                )
+        self.hf_client = ChatHuggingFace(llm=self.hf_endpoint)
+        self.hf_inference = InferenceApi(
+            repo_id="meta-llama/Llama-2-7b-chat-hf",
+            token=self.hf_api_key,
+            task="text-generation"  # works for chat-style models too
+        )
+        # 2) wrap that in a chat client for true chat/completions
+        self.hf_client = ChatHuggingFace(llm=self.hf_endpoint)
+
+        # 3) (optional) your Ollama client stays the same:
         self.ollama_client = LlamaCpp(
-            model_path=None,  # Set to local path if using local model, e.g., "/path/to/llama-2-7b.Q4_0.gguf"
+            model_path="/path/to/llama2.Q4_0.gguf",
             n_ctx=3900,
             max_tokens=256,
             temperature=0.1,
-            model_kwargs={"n_gpu_layers": 1}  # Use GPU if available
+            model_kwargs={"n_gpu_layers": 1},
         ) if os.path.exists(self.ollama_host) else None
-
     def xai_headers(self):
         return {"Authorization": f"Bearer {self.xai_api_key}", "Content-Type": "application/json"}
 
 def load_config():
-    if not all([OPENAI_API_KEY, COHERE_API_KEY, XAI_API_KEY]):
+    if not all([OPENAI_API_KEY, COHERE_API_KEY, XAI_API_KEY, HF_API_KEY, PINECONE_API_KEY]):
         raise ValueError("Missing one or more required API keys in environment")
     return Config(
         openai_api_key=OPENAI_API_KEY,
         cohere_api_key=COHERE_API_KEY,
         xai_api_key=XAI_API_KEY,
         hf_api_key=HF_API_KEY,
-        ollama_host=OLLAMA_HOST
+        ollama_host=OLLAMA_HOST,
+        xai_api_url="https://api.x.ai/v1/chat/completions",
+        default_service="grok",
+        default_model="grok-2"
     )
 
 # LLM Handler Class
@@ -154,16 +174,40 @@ class LLMHandler:
             logger.error(f"Cohere API error: {e}")
             raise
 
-    def get_huggingface_response(self, prompt, model="meta-llama/Llama-2-7b-chat-hf", conversation_history=None,
-                                 extra_instructions=""):
-        if not self.config.hf_client:
-            raise ValueError("Hugging Face client not initialized. Check HF_API_KEY.")
-        full_prompt = build_prompt("physical security consultant", prompt, conversation_history, extra_instructions)
+    def get_huggingface_response(
+            self, prompt,
+            model="meta-llama/Llama-2-7b-chat-hf",
+            conversation_history=None,
+            extra_instructions=""
+    ):
+        full_prompt = build_prompt(
+            "You are a physical security consultant.",
+            prompt,
+            conversation_history,
+            extra_instructions
+        )
+
         try:
-            response = self.config.hf_client.invoke(full_prompt)  # <--- FIXED
-            return response
+            # Single generate call, raw_response=True
+            resp = self.config.hf_inference(
+                full_prompt,
+                {"max_new_tokens": 512, "temperature": 0.7},
+                raw_response=True
+            )
+
+            # If it’s a requests.Response, return .text
+            if hasattr(resp, "text"):
+                return resp.text
+
+            # Otherwise parse JSON
+            if isinstance(resp, dict) and "choices" in resp:
+                return resp["choices"][0]["message"]["content"]
+
+            return resp.get("generated_text", str(resp))
+
         except Exception as e:
-            logger.error(f"Hugging Face API error: {e}")
+            logger.error(f"Hugging Face Inference API error: {e}", exc_info=True)
+            print(f"[HF Inference Error] {e}")
             raise
 
     def get_ollama_response(self, prompt, model="llama2", conversation_history=None, extra_instructions=""):
@@ -295,7 +339,7 @@ def validate_input(user_input: str) -> Tuple[bool, str]:
 def main():
     config = load_config()
     llm_handler = LLMHandler(config)
-    llm_service= config.default_service
+    llm_service = config.default_service
     llm_model = config.default_model
     conversation_history = []
 
@@ -304,7 +348,8 @@ def main():
     print("\n")
 
     # 🧠 List available LLMs
-    print("\n🧠 Available LLM Services:")
+    print("\n"
+          "Available LLM Services:")
     print(" - grok (model: grok-2)")
     print(" - openai (model: gpt-4o)")
     print(" - cohere (model: command-r)")
@@ -314,9 +359,13 @@ def main():
 
     print(f"Starting with {llm_service.capitalize()} (model: {llm_model})")
     print("This chatbot uses surveillance images to assist with physical security queries.")
+
     while True:
-        user_input = input(
-            f"[{llm_service.capitalize()}:{llm_model}] How can I assist you today? (Type 'exit', 'help', 'switch to <service>', 'set model <model>', or 'feedback <Y/N>'): ")
+        # 🧹 Clean multi-line input prompt
+        print(f"\n[{llm_service.capitalize()}:{llm_model}] How can I assist you today?")
+        print("(Type 'exit', 'help', 'switch to <service>', 'set model <model>', or 'feedback <Y/N>')")
+        user_input = input("Your input: ")
+
         is_valid, error_msg = validate_input(user_input)
         if not is_valid:
             print(error_msg)
@@ -324,7 +373,8 @@ def main():
 
         if user_input.lower() == "help":
             print(
-                "Try asking about suspicious activities, alarms, or trends. Commands: 'help', 'exit', 'switch to <service>', 'set model <model>', 'feedback <Y/N>'.")
+                "Try asking about suspicious activities, alarms, or trends. Commands: 'help', 'exit', 'switch to <service>', 'set model <model>', 'feedback <Y/N>'."
+            )
         elif user_input.lower() in ["exit", "quit"]:
             print("Goodbye!")
             break
@@ -341,7 +391,7 @@ def main():
                 }.get(new_service)
                 print(f"Switched to {llm_service.capitalize()} (model: {llm_model})")
             else:
-                print(f"Service {new_service} not recognized.")
+                print(f"Service '{new_service}' not recognized.")
         elif user_input.lower().startswith("set model "):
             llm_model = user_input.lower().replace("set model ", "").strip()
             print(f"Model set to {llm_model} for {llm_service.capitalize()}")
@@ -370,7 +420,7 @@ def main():
                 conversation_history.append({"role": "assistant", "content": response})
                 conversation_history = trim_conversation_history(conversation_history)
                 logger.info(f"Response generated in {time.time() - start_time:.2f} seconds")
-                print(f"{llm_service.capitalize()} says: {response}")
+                print(f"\n{llm_service.capitalize()} says: {response}")
                 display_gui(user_input, response, matches)
             except Exception as e:
                 logger.error(f"Error: {e}")
