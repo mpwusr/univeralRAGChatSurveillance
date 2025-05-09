@@ -12,6 +12,9 @@ data/WPNDTS_3JS_PSVL/*
 *.so
 # images
 surveillance/*
+surveillance/cleared_images/*
+surveillance/incoming_images/*
+surveillance/segmented_images/*
 dataset/*
 data/*
 wanddb/*
